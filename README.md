@@ -1,4 +1,4 @@
-# shareholders_crimes
+# Shareholders crimes 
 
 Repository contains:
 - the code related to all modelling for the study of shareholders crimes
