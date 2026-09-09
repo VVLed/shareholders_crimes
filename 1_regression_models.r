@@ -3,8 +3,8 @@ library(ggplot2)
 library(fst)
 library(fixest)
 library(stringr); library(stringi)
-library(modelsummary)
-options(scipen = 999)
+library(marginaleffects)
+library(modelsummary) 
 
 extract_estimates <- function(x, regular_expression_1 = "roa_b", regular_expression_2 = "roa_adj_hist", model_id = "name") {
   data.table(
@@ -40,7 +40,7 @@ llcs_panel_full <- read_fst("data/arbitrazh_cases/panel_disp_vs_strain.fst", as.
 cols_to_transform <- grep("roa", colnames(llcs_panel_full), value = TRUE)
 llcs_panel_full[, (cols_to_transform) := lapply(.SD, function (x) asinh(x)), .SDcols = cols_to_transform]
 
-cols_to_log <- grep("market_share|total_assets|revenue|age", colnames(llcs_panel_full))
+cols_to_log <- grep("market_share|total_assets|revenue|^age", colnames(llcs_panel_full))
 llcs_panel_full[, (cols_to_log) := lapply(.SD, function (x) log(x)), .SDcols = cols_to_log]
 
 setFixest_dict(c(
@@ -101,6 +101,10 @@ setFixest_dict(c(
   paid_dividends_b2 = "Paid dividends t-2",
   paid_dividends_b3 = "Paid dividends t-3",
   paid_dividends_b4 = "Paid dividends t-4",
+  leverage_b1 = "Leverage t-1",
+  leverage_b2 = "Leverage t-2",
+  leverage_b3 = "Leverage t-3",
+  leverage_b4 = "Leverage t-4",
   year = "Year",
   okved_2dig = "Industry",
   inn = "Firm",
@@ -166,34 +170,36 @@ var_labels <- c(
   paid_dividends_b2 = "Paid dividends t-2",
   paid_dividends_b3 = "Paid dividends t-3",
   paid_dividends_b4 = "Paid dividends t-4",
+  leverage_b1 = "Leverage t-1",
+  leverage_b2 = "Leverage t-2",
+  leverage_b3 = "Leverage t-3",
+  leverage_b4 = "Leverage t-4",
   year = "Year",
   okved_2dig = "Industry",
   inn = "Firm"
 )
-
-
 
 # Baseline models ====
 
 ## PP first order =====
 
 llcs_panel <- llcs_panel_full[roa_b1 != 0 & !is.na(roa_b1) & roa_b2 != 0 & !is.na(roa_b2) & !is.na(roa_adj_hist_b2) & 
-                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(lr_ind_year_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
-                                revenue_b2 > 0 &
-                                !is.na(market_share_b1) & !is.na(total_assets_b1) & !is.na(revenue_b1) & !is.na(lr_ind_year_b1) & !is.na(age_b1) & !is.na(family_element_b1) &
-                                revenue_b1 > 0 &
+                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
+                                revenue_b2 > 0 & !is.na(leverage_b2) & !is.infinite(leverage_b2) &
+                                !is.na(market_share_b1) & !is.na(total_assets_b1) & !is.na(revenue_b1) & !is.na(age_b1) & !is.na(family_element_b1) &
+                                revenue_b1 > 0 & !is.na(leverage_b1) & !is.infinite(leverage_b1) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
 cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
 control_vars <- c("roa_b1", "roa_b2", "roa_adj_hist_b2", "market_share_b1", 
-                  "total_assets_b1", "revenue_b1", "lr_ind_year_b1", 
+                  "total_assets_b1", "revenue_b1", 
                   "n_participants_b1", "family_element_b1", "zero_interest_loan_b1",
-                  "paid_zero_interest_b1", "total_assets_b2", 
-                  "revenue_b2", "age_b2", "lr_ind_year_b2", 
+                  "paid_zero_interest_b1", "leverage_b1", "total_assets_b2", 
+                  "revenue_b2", "age_b2",  
                   "n_participants_b2", "family_element_b2", "zero_interest_loan_b2",
-                  "paid_zero_interest_b2")
+                  "paid_zero_interest_b2", "leverage_b2")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -299,22 +305,22 @@ gc()
 ## PP second order ====
 
 llcs_panel <- llcs_panel_full[roa_b2 != 0 & !is.na(roa_b2) & roa_b3 != 0 & !is.na(roa_b3) & !is.na(roa_adj_hist_b3) & 
-                                !is.na(market_share_b3) & !is.na(total_assets_b3) & !is.na(revenue_b3) & !is.na(lr_ind_year_b3) & !is.na(age_b3) & !is.na(family_element_b3) &
-                                revenue_b3 > 0 &
-                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(lr_ind_year_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
-                                revenue_b2 > 0 &
+                                !is.na(market_share_b3) & !is.na(total_assets_b3) & !is.na(revenue_b3)  & !is.na(age_b3) & !is.na(family_element_b3) &
+                                revenue_b3 > 0 & !is.na(leverage_b3) & !is.infinite(leverage_b3) &
+                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
+                                revenue_b2 > 0 & !is.na(leverage_b2) & !is.infinite(leverage_b2) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
 cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
 control_vars <- c("roa_b2", "roa_b3", "roa_adj_hist_b3", "market_share_b2", 
-                  "total_assets_b2", "revenue_b2", "lr_ind_year_b2", 
+                  "total_assets_b2", "revenue_b2", 
                   "n_participants_b2", "family_element_b2", "zero_interest_loan_b2",
-                  "paid_zero_interest_b2", "market_share_b3", "total_assets_b3", 
-                  "revenue_b3", "age_b3", "lr_ind_year_b3", 
+                  "paid_zero_interest_b2", "leverage_b2", "market_share_b3", "total_assets_b3", 
+                  "revenue_b3", "age_b3",  
                   "n_participants_b3", "family_element_b3", "zero_interest_loan_b3",
-                  "paid_zero_interest_b3")
+                  "paid_zero_interest_b3", "leverage_b3")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -418,22 +424,22 @@ second_order_model_roa_unsatisfied_criminal <- copy(model_roa_unsatisfied_crimin
 ## PP third order ====
 
 llcs_panel <- llcs_panel_full[roa_b3 != 0 & !is.na(roa_b3) & roa_b4 != 0 & !is.na(roa_b4) & !is.na(roa_adj_hist_b4) & 
-                                !is.na(market_share_b4) & !is.na(total_assets_b4) & !is.na(revenue_b4) & !is.na(lr_ind_year_b4) & !is.na(age_b4) & !is.na(family_element_b4) &
-                                revenue_b4 > 0 &
-                                !is.na(market_share_b3) & !is.na(total_assets_b3) & !is.na(revenue_b3) & !is.na(lr_ind_year_b3) & !is.na(age_b3) & !is.na(family_element_b3) &
-                                revenue_b3 > 0 &
+                                !is.na(market_share_b4) & !is.na(total_assets_b4) & !is.na(revenue_b4)  & !is.na(age_b4) & !is.na(family_element_b4) &
+                                revenue_b4 > 0 & !is.na(leverage_b4) & !is.infinite(leverage_b4) &
+                                !is.na(market_share_b3) & !is.na(total_assets_b3) & !is.na(revenue_b3) & !is.na(age_b3) & !is.na(family_element_b3) &
+                                revenue_b3 > 0 & !is.na(leverage_b3) & !is.infinite(leverage_b3) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
 cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
 control_vars <- c("roa_b3", "roa_b4", "roa_adj_hist_b4", "market_share_b3", 
-                  "total_assets_b3", "revenue_b3", "lr_ind_year_b3", 
+                  "total_assets_b3", "revenue_b3",  
                   "n_participants_b3", "family_element_b3", "zero_interest_loan_b3",
-                  "paid_zero_interest_b3", "market_share_b4", "total_assets_b4", 
-                  "revenue_b4", "age_b4", "lr_ind_year_b4", 
+                  "paid_zero_interest_b3", "leverage_b3", "market_share_b4", "total_assets_b4", 
+                  "revenue_b4", "age_b4", 
                   "n_participants_b4", "family_element_b4", "zero_interest_loan_b4",
-                  "paid_zero_interest_b4")
+                  "paid_zero_interest_b4", "leverage_b4")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -525,15 +531,22 @@ results_lag3$n_cases_unsatisfied_criminal <- llcs_panel[pp_case_unsatisfied_crim
 
 # Save baseline regression tables ====
 
-etable(first_order_model_roa_any, first_order_model_roa_satisfied, first_order_model_roa_unsatisfied, first_order_model_roa_any_criminal, first_order_model_roa_satisfied_criminal, first_order_model_roa_unsatisfied_criminal, 
-       second_order_model_roa_any, second_order_model_roa_satisfied, second_order_model_roa_unsatisfied, second_order_model_roa_any_criminal, second_order_model_roa_satisfied_criminal, second_order_model_roa_unsatisfied_criminal, 
-       model_roa_any, model_roa_satisfied, model_roa_unsatisfied, model_roa_any_criminal, model_roa_satisfied_criminal, model_roa_unsatisfied_criminal,
+etable(first_order_model_roa_any, first_order_model_roa_satisfied, first_order_model_roa_unsatisfied, first_order_model_roa_any_noncriminal, first_order_model_roa_any_criminal, first_order_model_roa_satisfied_criminal, first_order_model_roa_unsatisfied_criminal, 
+       second_order_model_roa_any, second_order_model_roa_satisfied, second_order_model_roa_unsatisfied, second_order_model_roa_any_noncriminal, second_order_model_roa_any_criminal, second_order_model_roa_satisfied_criminal, second_order_model_roa_unsatisfied_criminal, 
+       model_roa_any, model_roa_satisfied, model_roa_unsatisfied, model_roa_any_noncriminal, model_roa_any_criminal, model_roa_satisfied_criminal, model_roa_unsatisfied_criminal,
        se.below	= TRUE,
        fitstat = c("n", "r2", "aic"),
        signif.code = c("***" = 0.001, "**" = 0.01, "*" = 0.05, "." = 0.10),
        #       keep = "ROA",
        tex = TRUE,
-       file = paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/regression_tables/first_second_third_order_models.tex"))
+       file = file.path(
+         path_d,
+        "plots_tables",
+        "regression_tables",
+        "first_second_third_order_models.tex"
+  ))
+
+
 
 # Does not work on jetty; use stt
 modelsummary(
@@ -548,10 +561,6 @@ modelsummary(
   coef_rename = var_labels,
   output = file.path(
     path_d,
-    "ledenev",
-    "corporate_disputes",
-    "code",
-    "disp_vs_strain",
     "plots_tables",
     "regression_tables",
     "second_order_models.docx"
@@ -581,10 +590,6 @@ modelsummary(
   coef_rename = var_labels,
   output = file.path(
     path_d,
-    "ledenev",
-    "corporate_disputes",
-    "code",
-    "disp_vs_strain",
     "plots_tables",
     "regression_tables",
     "first_second_third_order_models.docx"
@@ -631,7 +636,7 @@ assign_lagged_vars <- function(dt, cols, short_lag = 1, medium_lag = 2, long_lag
 
 ## PP first order ====
 
-cols_to_lag <- c("roa", "roa_adj_hist", "market_share", "total_assets", "revenue", "lr_ind_year", "n_participants", "family_element", "zero_interest_loan", "paid_zero_interest")
+cols_to_lag <- c("roa", "roa_adj_hist", "market_share", "total_assets", "revenue",  "n_participants", "family_element", "zero_interest_loan", "paid_zero_interest", "leverage")
 
 llcs_panel <- assign_lagged_vars(
   dt = llcs_panel_full, 
@@ -651,15 +656,15 @@ llcs_panel[, paste0(cols_to_lag, "_b1") := lapply(.SD, function(x) shift(x, type
 llcs_panel[inn != inn_b1, paste0(cols_to_lag, "_b1") := NA]
 
 llcs_panel <- llcs_panel[roa_b_appr != 0 & !is.na(roa_b_appr) & roa_b_appr_b1 != 0 & !is.na(roa_b_appr_b1) & !is.na(roa_adj_hist_b_appr_b1) & 
-                                !is.na(market_share_b_appr) & !is.na(total_assets_b_appr) & !is.na(revenue_b_appr) & !is.na(lr_ind_year_b_appr) & !is.na(age) & !is.na(family_element_b_appr) &
-                                !is.na(market_share_b_appr_b1) & !is.na(total_assets_b_appr_b1) & !is.na(revenue_b_appr_b1) & !is.na(lr_ind_year_b_appr_b1) & !is.na(age) & !is.na(family_element_b_appr_b1) &
+                                !is.na(market_share_b_appr) & !is.na(total_assets_b_appr) & !is.na(revenue_b_appr)  & !is.na(age) & !is.na(family_element_b_appr) & !is.na(leverage_b_appr) & !is.infinite(leverage_b_appr) &
+                                !is.na(market_share_b_appr_b1)  & !is.na(revenue_b_appr_b1)  & !is.na(age) & !is.na(family_element_b_appr_b1) & !is.na(leverage_b_appr_b1) & !is.infinite(leverage_b_appr_b1) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
 cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
-control_vars <- c("roa_b_appr", "roa_b_appr_b1", "roa_adj_hist_b_appr_b1", "market_share_b_appr", "total_assets_b_appr", "revenue_b_appr", "lr_ind_year_b_appr", "age", "family_element_b_appr",
-                  "market_share_b_appr_b1", "total_assets_b_appr_b1", "revenue_b_appr_b1", "lr_ind_year_b_appr_b1", "family_element_b_appr_b1")
+control_vars <- c("roa_b_appr", "roa_b_appr_b1", "roa_adj_hist_b_appr_b1", "market_share_b_appr", "total_assets_b_appr", "revenue_b_appr",  "age", "family_element_b_appr", "leverage",
+                  "market_share_b_appr_b1", "total_assets_b_appr_b1", "revenue_b_appr_b1", "family_element_b_appr_b1", "leverage_b_appr_b1")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -757,7 +762,7 @@ gc()
 
 ## PP second order ====
 
-cols_to_lag <- c("roa", "roa_adj_hist", "market_share", "total_assets", "revenue", "lr_ind_year", "n_participants", "family_element", "zero_interest_loan", "paid_zero_interest")
+cols_to_lag <- c("roa", "roa_adj_hist", "market_share", "total_assets", "revenue", "n_participants", "family_element", "zero_interest_loan", "paid_zero_interest", "leverage")
 
 llcs_panel <- assign_lagged_vars(
   dt = llcs_panel_full, 
@@ -777,15 +782,15 @@ llcs_panel[, paste0(cols_to_lag, "_b1") := lapply(.SD, function(x) shift(x, type
 llcs_panel[inn != inn_b1, paste0(cols_to_lag, "_b1") := NA]
 
 llcs_panel <- llcs_panel[roa_b_appr != 0 & !is.na(roa_b_appr) & roa_b_appr_b1 != 0 & !is.na(roa_b_appr_b1) & !is.na(roa_adj_hist_b_appr_b1) & 
-                           !is.na(market_share_b_appr) & !is.na(total_assets_b_appr) & !is.na(revenue_b_appr) & !is.na(lr_ind_year_b_appr) & !is.na(age) & !is.na(family_element_b_appr) &
-                           !is.na(market_share_b_appr_b1) & !is.na(total_assets_b_appr_b1) & !is.na(revenue_b_appr_b1) & !is.na(lr_ind_year_b_appr_b1) & !is.na(age) & !is.na(family_element_b_appr_b1) &
-                           sole_shareholder_only == 0 & year >= 2014, ] 
+                                !is.na(market_share_b_appr) & !is.na(total_assets_b_appr) & !is.na(revenue_b_appr)  & !is.na(age) & !is.na(family_element_b_appr) & !is.na(leverage_b_appr) & !is.infinite(leverage_b_appr) &
+                                !is.na(market_share_b_appr_b1) & !is.na(total_assets_b_appr_b1) & !is.na(revenue_b_appr_b1)  & !is.na(age) & !is.na(family_element_b_appr_b1) & !is.na(leverage_b_appr_b1) & !is.infinite(leverage_b_appr_b1) &
+                                sole_shareholder_only == 0 & year >= 2014, ] 
 
 cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
-control_vars <- c("roa_b_appr", "roa_b_appr_b1", "roa_adj_hist_b_appr_b1", "market_share_b_appr", "total_assets_b_appr", "revenue_b_appr", "lr_ind_year_b_appr", "age","family_element_b_appr",
-                  "market_share_b_appr_b1", "total_assets_b_appr_b1", "revenue_b_appr_b1", "lr_ind_year_b_appr_b1", "family_element_b_appr_b1")
+control_vars <- c("roa_b_appr", "roa_b_appr_b1", "roa_adj_hist_b_appr_b1", "market_share_b_appr", "total_assets_b_appr", "revenue_b_appr",  "age", "family_element_b_appr", "leverage",
+                  "market_share_b_appr_b1", "total_assets_b_appr_b1", "revenue_b_appr_b1",  "family_element_b_appr_b1", "leverage_b_appr_b1")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -881,7 +886,7 @@ gc()
 
 ## PP third order ====
 
-cols_to_lag <- c("roa", "roa_adj_hist", "market_share", "total_assets", "revenue", "lr_ind_year", "n_participants", "family_element", "zero_interest_loan", "paid_zero_interest")
+cols_to_lag <- c("roa", "roa_adj_hist", "market_share", "total_assets", "revenue", "n_participants", "family_element", "zero_interest_loan", "paid_zero_interest", "leverage")
 
 llcs_panel <- assign_lagged_vars(
   dt = llcs_panel_full, 
@@ -901,15 +906,15 @@ llcs_panel[, paste0(cols_to_lag, "_b1") := lapply(.SD, function(x) shift(x, type
 llcs_panel[inn != inn_b1, paste0(cols_to_lag, "_b1") := NA]
 
 llcs_panel <- llcs_panel[roa_b_appr != 0 & !is.na(roa_b_appr) & roa_b_appr_b1 != 0 & !is.na(roa_b_appr_b1) & !is.na(roa_adj_hist_b_appr_b1) & 
-                           !is.na(market_share_b_appr) & !is.na(total_assets_b_appr) & !is.na(revenue_b_appr) & !is.na(lr_ind_year_b_appr) & !is.na(age) & !is.na(family_element_b_appr) &
-                           !is.na(market_share_b_appr_b1) & !is.na(total_assets_b_appr_b1) & !is.na(revenue_b_appr_b1) & !is.na(lr_ind_year_b_appr_b1) & !is.na(age) & !is.na(family_element_b_appr_b1) &
-                           sole_shareholder_only == 0 & year >= 2014, ] 
+                                !is.na(market_share_b_appr) & !is.na(total_assets_b_appr) & !is.na(revenue_b_appr)  & !is.na(age) & !is.na(family_element_b_appr) & !is.na(leverage_b_appr) & !is.infinite(leverage_b_appr) &
+                                !is.na(market_share_b_appr_b1) & !is.na(total_assets_b_appr_b1) & !is.na(revenue_b_appr_b1)  & !is.na(age) & !is.na(family_element_b_appr_b1) & !is.na(leverage_b_appr_b1) & !is.infinite(leverage_b_appr_b1) &
+                                sole_shareholder_only == 0 & year >= 2014, ] 
 
 cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
-control_vars <- c("roa_b_appr", "roa_b_appr_b1", "roa_adj_hist_b_appr_b1", "market_share_b_appr", "total_assets_b_appr", "revenue_b_appr", "lr_ind_year_b_appr", "age","family_element_b_appr",
-                  "market_share_b_appr_b1", "total_assets_b_appr_b1", "revenue_b_appr_b1", "lr_ind_year_b_appr_b1", "family_element_b_appr_b1")
+control_vars <- c("roa_b_appr", "roa_b_appr_b1", "roa_adj_hist_b_appr_b1", "market_share_b_appr", "total_assets_b_appr", "revenue_b_appr",  "age", "family_element_b_appr", "leverage",
+                  "market_share_b_appr_b1", "total_assets_b_appr_b1", "revenue_b_appr_b1", "family_element_b_appr_b1", "leverage_b_appr_b1")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -1003,29 +1008,36 @@ pp_models_results <- rbind(pp_models_results, results_lagappr3, fill = TRUE)
 
 gc()
 
-fwrite(pp_models_results, paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/estimation_results/pp_models_both_predictors.csv"))
+fwrite(pp_models_results, file.path(
+         path_d,
+        "plots_tables",
+        "estimation_results",
+        "pp_models_both_predictors.csv"
+  ))
+
+
 
 # Run analysis for unstandardized variables ====
 
 ## PP first order ====
 
 llcs_panel <- llcs_panel_full[roa_b1 != 0 & !is.na(roa_b1) & roa_b2 != 0 & !is.na(roa_b2) & !is.na(roa_adj_hist_b2) & 
-                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(lr_ind_year_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
-                                revenue_b2 > 0 &
-                                !is.na(market_share_b1) & !is.na(total_assets_b1) & !is.na(revenue_b1) & !is.na(lr_ind_year_b1) & !is.na(age_b1) & !is.na(family_element_b1) &
-                                revenue_b1 > 0 &
+                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2)  & !is.na(age_b2) & !is.na(family_element_b2) &
+                                revenue_b2 > 0 & !is.na(leverage_b2) & !is.infinite(leverage_b2) &
+                                !is.na(market_share_b1) & !is.na(total_assets_b1) & !is.na(revenue_b1) & !is.na(age_b1) & !is.na(family_element_b1) &
+                                revenue_b1 > 0 & !is.na(leverage_b1) & !is.infinite(leverage_b1) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
 # cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 # llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
 control_vars <- c("roa_b1", "roa_b2", "roa_adj_hist_b2", "market_share_b1", 
-                  "total_assets_b1", "revenue_b1", "lr_ind_year_b1", 
+                  "total_assets_b1", "revenue_b1", 
                   "n_participants_b1", "family_element_b1", "zero_interest_loan_b1",
-                  "paid_zero_interest_b1", "total_assets_b2", 
-                  "revenue_b2", "age_b2", "lr_ind_year_b2", 
+                  "paid_zero_interest_b1", "leverage_b1", "total_assets_b2", 
+                  "revenue_b2", "age_b2", 
                   "n_participants_b2", "family_element_b2", "zero_interest_loan_b2",
-                  "paid_zero_interest_b2")
+                  "paid_zero_interest_b2", "leverage_b2")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -1124,22 +1136,22 @@ gc()
 ## PP second order ====
 
 llcs_panel <- llcs_panel_full[roa_b2 != 0 & !is.na(roa_b2) & roa_b3 != 0 & !is.na(roa_b3) & !is.na(roa_adj_hist_b3) & 
-                                !is.na(market_share_b3) & !is.na(total_assets_b3) & !is.na(revenue_b3) & !is.na(lr_ind_year_b3) & !is.na(age_b3) & !is.na(family_element_b3) &
-                                revenue_b3 > 0 &
-                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(lr_ind_year_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
-                                revenue_b2 > 0 &
+                                !is.na(market_share_b3) & !is.na(total_assets_b3) & !is.na(revenue_b3)  & !is.na(age_b3) & !is.na(family_element_b3) &
+                                revenue_b3 > 0 & !is.na(leverage_b3) & !is.infinite(leverage_b3) &
+                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
+                                revenue_b2 > 0 & !is.na(leverage_b2) & !is.infinite(leverage_b2) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
 # cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 # llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
 control_vars <- c("roa_b2", "roa_b3", "roa_adj_hist_b3", "market_share_b2", 
-                  "total_assets_b2", "revenue_b2", "lr_ind_year_b2", 
+                  "total_assets_b2", "revenue_b2", 
                   "n_participants_b2", "family_element_b2", "zero_interest_loan_b2",
-                  "paid_zero_interest_b2", "total_assets_b3", 
-                  "revenue_b3", "age_b3", "lr_ind_year_b3", 
+                  "paid_zero_interest_b2", "leverage_b2", "total_assets_b3", 
+                  "revenue_b3", "age_b3", 
                   "n_participants_b3", "family_element_b3", "zero_interest_loan_b3",
-                  "paid_zero_interest_b3")
+                  "paid_zero_interest_b3", "leverage_b3")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -1236,22 +1248,22 @@ second_order_model_roa_unsatisfied_criminal <- copy(model_roa_unsatisfied_crimin
 ## PP third order ====
 
 llcs_panel <- llcs_panel_full[roa_b3 != 0 & !is.na(roa_b3) & roa_b4 != 0 & !is.na(roa_b4) & !is.na(roa_adj_hist_b4) & 
-                                !is.na(market_share_b4) & !is.na(total_assets_b4) & !is.na(revenue_b4) & !is.na(lr_ind_year_b4) & !is.na(age_b4) & !is.na(family_element_b4) &
-                                revenue_b4 > 0 &
-                                !is.na(market_share_b3) & !is.na(total_assets_b3) & !is.na(revenue_b3) & !is.na(lr_ind_year_b3) & !is.na(age_b3) & !is.na(family_element_b3) &
-                                revenue_b3 > 0 &
+                                !is.na(market_share_b4) & !is.na(total_assets_b4) & !is.na(revenue_b4)  & !is.na(age_b4) & !is.na(family_element_b4) &
+                                revenue_b4 > 0 & !is.na(leverage_b4) & !is.infinite(leverage_b4) &
+                                !is.na(market_share_b3) & !is.na(total_assets_b3) & !is.na(revenue_b3) & !is.na(age_b3) & !is.na(family_element_b3) &
+                                revenue_b3 > 0 & !is.na(leverage_b3) & !is.infinite(leverage_b3) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
 # cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 # llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
 control_vars <- c("roa_b3", "roa_b4", "roa_adj_hist_b4", "market_share_b3", 
-                  "total_assets_b3", "revenue_b3", "lr_ind_year_b3", 
+                  "total_assets_b3", "revenue_b3",
                   "n_participants_b3", "family_element_b3", "zero_interest_loan_b3",
-                  "paid_zero_interest_b3", "total_assets_b4", 
-                  "revenue_b4", "age_b4", "lr_ind_year_b4", 
+                  "paid_zero_interest_b3", "leverage_b3", "total_assets_b4", 
+                  "revenue_b4", "age_b4", 
                   "n_participants_b4", "family_element_b4", "zero_interest_loan_b4",
-                  "paid_zero_interest_b4")
+                  "paid_zero_interest_b4", "leverage_b4")
 
 model_roa_any <- feols(
   create_formula("pp_case_any"),
@@ -1345,29 +1357,64 @@ etable(first_order_model_roa_any, first_order_model_roa_satisfied, first_order_m
        signif.code = c("***" = 0.001, "**" = 0.01, "*" = 0.05, "." = 0.10),
        #       keep = "ROA",
        tex = TRUE,
-       file = paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/regression_tables/first_second_third_order_models_unstandard.tex"))
+       file = file.path(
+    path_d,
+    "plots_tables",
+    "regression_tables",
+    "first_second_third_order_models_unstandard.tex"
+  ))
+
+modelsummary(
+  list(
+    "1nd order: Satisfied"  = first_order_model_roa_satisfied,
+    "1nd order: Unsatisfied" = first_order_model_roa_unsatisfied,
+    
+    "1nd order: Criminal" = first_order_model_roa_any_criminal,
+    "1nd order: Non-criminal" = first_order_model_roa_any_noncriminal,
+    
+    "2nd order: Satisfied"  = second_order_model_roa_satisfied,
+    "2nd order: Unsatisfied" = second_order_model_roa_unsatisfied,
+    
+    "2nd order: Criminal" = second_order_model_roa_any_criminal,
+    "2nd order: Non-criminal" = second_order_model_roa_any_noncriminal,
+    
+    "3rd order: Satisfied"  = model_roa_satisfied,
+    "3rd order: Unsatisfied" = model_roa_unsatisfied,
+    
+    "3rd order: Criminal" = model_roa_any_criminal,
+    "3rd order: Non-criminal" = model_roa_any_noncriminal
+  ),
+  stars = TRUE,
+  coef_rename = var_labels,
+  fmt = function(x) format(x, scientific = TRUE, digits = 3),
+  output = file.path(
+    path_d,
+    "plots_tables",
+    "regression_tables",
+    "first_second_third_order_unstadard_models.docx"
+  ))
 
 # Cumulative effect models ====
 
 # Absolute roa models ====
 
 llcs_panel <- llcs_panel_full[roa_b2 != 0 & !is.na(roa_b2) & roa_b3 != 0 & !is.na(roa_b3) & roa_b4 != 0 & !is.na(roa_b4) & 
-                                !is.na(total_assets_b3) & !is.na(revenue_b3) & !is.na(lr_ind_year_b3) & !is.na(age_b3) & !is.na(family_element_b3) &
-                                revenue_b3 > 0 &
-                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(lr_ind_year_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
-                                revenue_b2 > 0 &
+                                !is.na(total_assets_b3) & !is.na(revenue_b3)  & !is.na(age_b3) & !is.na(family_element_b3) &
+                                revenue_b3 > 0 & !is.na(leverage_b3) & !is.infinite(leverage_b3) &
+                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
+                                revenue_b2 > 0 & !is.na(leverage_b2) & !is.infinite(leverage_b2) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
 cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
 llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
 
 control_vars <- c("roa_b2", "roa_b3", "roa_b4", "age_b2", "market_share_b2", 
-                  "total_assets_b2", "revenue_b2", "lr_ind_year_b2", 
+                  "total_assets_b2", "revenue_b2",  
                   "n_participants_b2", "family_element_b2", "zero_interest_loan_b2",
-                  "paid_zero_interest_b2", "total_assets_b3", 
-                  "revenue_b3", "lr_ind_year_b3", 
+                  "paid_zero_interest_b2", "leverage_b2", "total_assets_b3", 
+                  "revenue_b3", 
                   "n_participants_b3", "family_element_b3", "zero_interest_loan_b3",
-                  "paid_zero_interest_b3")
+                  "paid_zero_interest_b3", "leverage_b3")
 
 # model_roa_any <- feols(
 #   create_formula("pp_case_any"),
@@ -1438,7 +1485,12 @@ etable(model_roa_satisfied, model_roa_unsatisfied, model_roa_any_noncriminal, mo
        signif.code = c("***" = 0.001, "**" = 0.01, "*" = 0.05, "." = 0.10),
        #       keep = "roa",
        tex = TRUE,
-       file = paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/regression_tables/all_abs_roa_models.tex"))
+       file = file.path(
+    path_d
+    "plots_tables",
+    "regression_tables",
+    "all_abs_roa_models.tex"
+  ))
 
 models_names <- c("model_roa_satisfied", "model_roa_unsatisfied", "model_roa_any_noncriminal","model_roa_any_criminal")
 
@@ -1481,28 +1533,36 @@ cum_estimate_all_roa <- rbindlist(Map(
   m = models_list, 
   n = names(models_list)))
 
-fwrite(joint_wald_results_all_roa, paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/estimation_results/wald_tests_all_abs_roa.csv"))
-fwrite(cum_estimate_all_roa, paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/estimation_results/cum_est_all_abs_roa.csv"))
+fwrite(joint_wald_results_all_roa, file.path(
+    path_d,
+    "plots_tables",
+    "regression_tables",
+    "wald_tests_all_abs_roa.csv"
+  ))
 
-# Historical roa models ====
+fwrite(cum_estimate_all_roa, file.path(
+    path_d,
+    "plots_tables",
+    "regression_tables",
+    "cum_est_all_abs_roa.csv"
+  ))
 
-llcs_panel <- llcs_panel_full[roa_adj_hist_b2 != 0 & !is.na(roa_adj_hist_b2) & roa_adj_hist_b4 != 0 & !is.na(roa_adj_hist_b4) & 
-                                !is.na(total_assets_b3) & !is.na(revenue_b3) & !is.na(lr_ind_year_b3) & !is.na(age_b3) & !is.na(family_element_b3) &
-                                revenue_b3 > 0 &
-                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(lr_ind_year_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
-                                revenue_b2 > 0 &
+# Absolute roa models (unstandardized) ====
+
+llcs_panel <- llcs_panel_full[roa_b2 != 0 & !is.na(roa_b2) & roa_b3 != 0 & !is.na(roa_b3) & roa_b4 != 0 & !is.na(roa_b4) & 
+                                !is.na(total_assets_b3) & !is.na(revenue_b3)  & !is.na(age_b3) & !is.na(family_element_b3) &
+                                revenue_b3 > 0 & !is.na(leverage_b3) & !is.infinite(leverage_b3) &
+                                !is.na(market_share_b2) & !is.na(total_assets_b2) & !is.na(revenue_b2) & !is.na(age_b2) & !is.na(family_element_b2) &
+                                revenue_b2 > 0 & !is.na(leverage_b2) & !is.infinite(leverage_b2) &
                                 sole_shareholder_only == 0 & year >= 2014, ] 
 
-cols_to_scale <- grep("(_case_)|(roa)", colnames(llcs_panel), value = TRUE)
-llcs_panel[, (cols_to_scale) := lapply(.SD, function (x) scale(x, center = TRUE, scale = TRUE)), .SDcols = cols_to_scale]
-
-control_vars <- c("roa_adj_hist_b2", "roa_adj_hist_b4", "age_b2", "market_share_b2", 
-                  "total_assets_b2", "revenue_b2", "lr_ind_year_b2", 
+control_vars <- c("roa_b2", "roa_b3", "roa_b4", "age_b2", "market_share_b2", 
+                  "total_assets_b2", "revenue_b2",  
                   "n_participants_b2", "family_element_b2", "zero_interest_loan_b2",
-                  "paid_zero_interest_b2", "total_assets_b3", 
-                  "revenue_b3", "lr_ind_year_b3", 
+                  "paid_zero_interest_b2", "leverage_b2", "total_assets_b3", 
+                  "revenue_b3", 
                   "n_participants_b3", "family_element_b3", "zero_interest_loan_b3",
-                  "paid_zero_interest_b3")
+                  "paid_zero_interest_b3", "leverage_b3")
 
 # model_roa_any <- feols(
 #   create_formula("pp_case_any"),
@@ -1567,13 +1627,23 @@ model_roa_any_criminal <- feols(
 #   data = llcs_panel,
 #   mem.clean = TRUE, verbose = 3, nthreads = 16)
 
-etable(model_roa_satisfied, model_roa_unsatisfied, model_roa_any_noncriminal, model_roa_any_criminal,
-       se.below	= TRUE,
-       fitstat = c("n", "r2", "aic"),
-       signif.code = c("***" = 0.001, "**" = 0.01, "*" = 0.05, "." = 0.10),
-       #       keep = "roa",
-       tex = TRUE,
-       file = paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/regression_tables/all_hist_roa_models.tex"))
+modelsummary(
+  list(
+    "Satisfied"  = model_roa_satisfied,
+    "Unsatisfied" = model_roa_unsatisfied,
+    
+    "Criminal" = model_roa_any_criminal,
+    "Non-criminal" = model_roa_any_noncriminal
+  ),
+  stars = TRUE,
+  coef_rename = var_labels,
+  fmt = function(x) format(x, scientific = TRUE, digits = 3),
+  output = file.path(
+    path_d,
+    "plots_tables",
+    "regression_tables",
+    "all_abs_roa_models_unstandard.docx"
+  ))
 
 models_names <- c("model_roa_satisfied", "model_roa_unsatisfied", "model_roa_any_noncriminal","model_roa_any_criminal")
 
@@ -1588,33 +1658,40 @@ extract_joint_test_all_roa <- function(x, model_id = "name") {
     wald_stat = wald_results$stat,
     wald_p =  wald_results$p,
     model = model_id,
-    strain = "hist"
+    strain = "absolute"
   )
   return(results)
 }
 
-joint_wald_results_hist_roa <- rbindlist(Map(
+joint_wald_results_all_roa <- rbindlist(Map(
   function(m, n) {extract_joint_test_all_roa(m, model_id = n)}, 
   m = models_list, 
   n = names(models_list)))
 
 extract_cum_effect_all_roa <- function(x, model_id = "name") {
   cum_results <- hypotheses(x,
-                            hypothesis = "roa_adj_hist_b2 + roa_adj_hist_b4 = 0")
+                            hypothesis = "roa_b2 + roa_b3 + roa_b4 = 0")
   results <- data.table(
     estimate = cum_results$estimate,
     se = cum_results$std.error,
     p_value =  cum_results$p.value,
     model = model_id,
-    strain = "hist"
+    strain = "absolute"
   )
   return(results)
 }
 
-cum_estimate_hist_roa <- rbindlist(Map(
+cum_estimate_all_roa <- rbindlist(Map(
   function(m, n) {extract_cum_effect_all_roa(m, model_id = n)}, 
   m = models_list, 
   n = names(models_list)))
 
-fwrite(joint_wald_results_hist_roa, paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/estimation_results/wald_tests_all_hist_roa.csv"))
-fwrite(cum_estimate_hist_roa, paste0(path_d, "ledenev/corporate_disputes/code/disp_vs_strain/plots_tables/estimation_results/cum_est_all_hist_roa.csv"))
+
+fwrite(cum_estimate_all_roa, file.path(
+  path_d,
+  "plots_tables",
+  "regression_tables",
+  "cum_est_all_abs_roa_unstandard.csv"
+))
+
+
