@@ -5,7 +5,7 @@ Repository contains:
 - the prompt used to classify the court rulings and extract some information from them.
 - plots demonstrating balance of covariates after the matching and weighting.
  
-The prompt includes several examples of the court rulings.
+The prompt includes several examples of the court rulings. Gemini 2.0 Flash Thinking and Gemini 2.5 Flash was used.
 
 Definition of all variables can be seen in the code 1_regression_models.r (see function setFixest_dict()).
 
